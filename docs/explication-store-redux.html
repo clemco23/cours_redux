@@ -1,0 +1,160 @@
+﻿<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Comprendre le store Redux et Panier</title>
+<style>
+@page { size: A4; margin: 18mm; }
+body { font: 11pt/1.5 "Segoe UI", sans-serif; color: #24344b; margin: 0; }
+h1 { color: #2857a4; font-size: 25pt; line-height: 1.15; margin: 8px 0 14px; }
+h2 { font-size: 14pt; color: #2857a4; margin: 20px 0 8px; }
+p { margin: 8px 0; }
+pre { background: #eff3f9; border-left: 3px solid #2857a4; padding: 12px 16px; font: 10pt/1.5 Consolas, monospace; white-space: pre-wrap; }
+code { font-family: Consolas, monospace; }
+.label { color: #52647c; font-size: 10pt; }
+.box { background: #edf8f2; border-left: 3px solid #18705c; padding: 12px 16px; margin-top: 14px; }
+.page-break { break-before: page; }
+li { margin: 5px 0; }
+</style>
+</head>
+<body>
+<p class="label">Cours React · Exemple du panier · Redux Toolkit</p>
+<h1>Le store et son utilisation dans Panier</h1>
+<p>Le <strong>store</strong> est l’endroit où Redux conserve les données partagées de ton application. Dans notre exemple, il contient la quantité d’articles du panier.</p>
+
+<h2>1. À quoi ressemble l’état du store ?</h2>
+<pre>{
+  panier: {
+    quantite: 0
+  }
+}</pre>
+<p><code>panier</code> regroupe les données du panier. <code>quantite</code> contient le nombre d’articles.</p>
+
+<h2>2. Comment crée-t-on le store ?</h2>
+<p>Dans <code>src/redux-example/store/store.js</code> :</p>
+<pre>import { configureStore } from "@reduxjs/toolkit";
+import panierReducer from "./panierSlice.js";
+
+export const store = configureStore({
+  reducer: {
+    panier: panierReducer
+  }
+});</pre>
+<p><code>configureStore</code> crée le store. La clé <code>panier</code> définit le nom de cette partie de l’état. Le <code>panierReducer</code> définit son état initial et comment les actions le modifient.</p>
+<p>Le chemin pour lire le nombre d’articles est donc <code>state.panier.quantite</code>.</p>
+
+<h2>3. Comment les composants y accèdent-ils ?</h2>
+<p>Dans <code>src/redux-example/main.jsx</code>, on entoure App avec <code>Provider</code> :</p>
+<pre>&lt;Provider store={store}&gt;
+  &lt;App /&gt;
+&lt;/Provider&gt;</pre>
+<p><strong>Provider rend le store accessible à tous les composants situés en dessous de lui</strong>, dont Navigation et Panier. Il évite de transmettre le store manuellement à chaque niveau par des props.</p>
+
+<div class="page-break"></div>
+<p class="label">Lire la donnée dans un composant</p>
+<h2>4. Comment Panier lit-il la quantité ?</h2>
+<p>Dans <code>src/redux-example/components/Panier.jsx</code>, la lecture fonctionne ainsi (version simplifiée de l’affichage) :</p>
+<pre>import { useSelector } from "react-redux";
+
+export default function Panier() {
+  const quantite = useSelector(
+    state =&gt; state.panier.quantite
+  );
+
+  return &lt;p&gt;Panier : {quantite} article(s)&lt;/p&gt;;
+}</pre>
+<p><code>useSelector</code> est un hook fourni par React Redux. Il retrouve le store rendu accessible par Provider et sélectionne la donnée dont le composant a besoin.</p>
+<ul>
+<li><code>state</code> représente tout l’état du store.</li>
+<li><code>state.panier</code> récupère la partie panier.</li>
+<li><code>state.panier.quantite</code> récupère le nombre d’articles.</li>
+<li>Cette valeur est placée dans la variable <code>quantite</code> pour l’afficher.</li>
+</ul>
+<div class="box"><strong>À retenir :</strong> Panier n’importe pas directement le store et ne reçoit pas la quantité en prop. Il utilise <code>useSelector</code> pour lire le store fourni par <code>Provider</code>.</div>
+
+<h2>5. Pourquoi l’affichage se met-il à jour ?</h2>
+<p><code>useSelector</code> abonne aussi Panier aux changements du store. Quand la quantité sélectionnée change, React affiche la nouvelle valeur dans Panier.</p>
+<pre>Clic sur « Ajouter au panier » dans Produit
+                  ↓
+        dispatch(ajouter())
+                  ↓
+Le reducer augmente la quantité dans le store
+                  ↓
+useSelector détecte la nouvelle quantité
+                  ↓
+      Panier affiche la nouvelle valeur</pre>
+<p>Pour modifier l’état, Produit envoie une action avec <code>dispatch</code>. Pour le lire, Panier utilise <code>useSelector</code>. Navigation peut toujours contenir Panier, sans transmettre la quantité.</p>
+
+<div class="box"><strong>Les trois rôles :</strong><br>
+Store : conserve les données partagées.<br>
+Provider : donne accès au store dans l’arbre React.<br>
+useSelector : lit une donnée et suit ses changements.</div>
+<div class="page-break"></div>
+<p class="label">Définir et modifier les données du panier</p>
+<h2>6. Quel est le rôle de panierSlice.js ?</h2>
+<p>Un <strong>slice</strong> regroupe la définition d’une partie de l’état Redux et les règles permettant de la modifier. Ici, cette partie correspond au panier.</p>
+<p>Voici le code de <code>src/redux-example/store/panierSlice.js</code> :</p>
+<pre>import { createSlice } from "@reduxjs/toolkit";
+
+const panierSlice = createSlice({
+  name: "panier",
+  initialState: { quantite: 0 },
+  reducers: {
+    ajouter(state) {
+      state.quantite += 1;
+    },
+  },
+});
+
+export const { ajouter } = panierSlice.actions;
+export default panierSlice.reducer;</pre>
+<ul>
+<li><code>createSlice</code> génère le reducer du slice et les fonctions qui créent ses actions.</li>
+<li><code>name: "panier"</code> sert de préfixe aux types des actions générées, par exemple <code>"panier/ajouter"</code>.</li>
+<li><code>initialState</code> définit les données de départ : la quantité vaut 0.</li>
+<li><code>reducers</code> contient les règles de modification. Ici, <code>ajouter</code> augmente la quantité de 1.</li>
+</ul>
+<p>Dans ce reducer, <code>state</code> représente uniquement l’état du panier : <code>{ quantite: 0 }</code>. Dans <code>useSelector</code>, <code>state</code> représente l’état complet du store : <code>{ panier: { quantite: 0 } }</code>.</p>
+<div class="box"><strong>Pourquoi peut-on écrire state.quantite += 1 ?</strong><br>
+Redux Toolkit utilise Immer : on travaille sur un brouillon, et Immer produit le nouvel état sans modifier l’ancien. Cette écriture est prévue dans les reducers de createSlice ; on ne modifie pas directement le store depuis un composant.</div>
+
+<div class="page-break"></div>
+<p class="label">Relier le slice, le store et les composants</p>
+<h2>7. Pourquoi exporter ajouter et le reducer ?</h2>
+<p>Les deux exports ont des rôles différents :</p>
+<pre>export const { ajouter } = panierSlice.actions;</pre>
+<p><code>ajouter</code> est une <strong>fonction qui crée une action</strong>. Appeler <code>ajouter()</code> crée un objet dont le type est <code>"panier/ajouter"</code>. Cet appel seul ne modifie pas le store : il faut envoyer l’action avec <code>dispatch</code>.</p>
+<pre>export default panierSlice.reducer;</pre>
+<p>Cet export fournit le <strong>reducer</strong>, la fonction qui calcule le nouvel état du panier selon l’action reçue. Dans <code>store.js</code>, on l’importe sous le nom <code>panierReducer</code> :</p>
+<pre>import panierReducer from "./panierSlice.js";
+
+export const store = configureStore({
+  reducer: { panier: panierReducer }
+});</pre>
+<p>La clé <code>panier</code> dans cette configuration définit le chemin <code>state.panier</code>. Le <code>name</code> du slice définit le préfixe des actions ; ce sont deux rôles distincts, même si nous utilisons le même mot ici.</p>
+
+<h2>8. Comment Produit utilise-t-il l’action ?</h2>
+<p>Version simplifiée de <code>components/Produit.jsx</code> :</p>
+<pre>import { useDispatch } from "react-redux";
+import { ajouter } from "../store/panierSlice.js";
+
+export default function Produit() {
+  const dispatch = useDispatch();
+
+  return (
+    &lt;button onClick={() =&gt; dispatch(ajouter())}&gt;
+      Ajouter au panier
+    &lt;/button&gt;
+  );
+}</pre>
+<p>Au clic, <code>ajouter()</code> crée l’action, puis <code>dispatch</code> l’envoie au store. Le reducer du panier traite cette action et augmente la quantité. Panier, abonné à cette quantité avec <code>useSelector</code>, affiche la nouvelle valeur.</p>
+<div class="box"><strong>Les fichiers à relier mentalement :</strong><br>
+panierSlice.js : définit les données de départ, les actions et les règles de modification.<br>
+store.js : enregistre le reducer sous la clé panier.<br>
+main.jsx : fournit le store via Provider.<br>
+Produit.jsx : envoie l’action ajouter.<br>
+Panier.jsx : lit state.panier.quantite avec useSelector.</div>
+<p class="label">Documentation : <a href="https://redux.js.org/tutorials/quick-start">Guide officiel Redux — Quick Start</a>.</p>
+</body>
+</html>
+
